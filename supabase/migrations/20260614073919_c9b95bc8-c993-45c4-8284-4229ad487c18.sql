@@ -1,0 +1,7 @@
+-- Hardcoded user role insertion commented out to prevent migration failures on a new Supabase project.
+-- To make a user an admin, sign up/create the user first in the Supabase Dashboard,
+-- and then run the insert SQL statement with their generated user ID in the SQL Editor.
+--
+-- INSERT INTO public.user_roles (user_id, role)
+-- VALUES ('d78bd467-34b9-41a2-bf76-00830bf936e7', 'admin')
+-- ON CONFLICT (user_id, role) DO NOTHING;
