@@ -121,19 +121,15 @@ function Index() {
             <p className="text-xs uppercase tracking-widest text-muted-foreground">Lunawada, Gujarat</p>
             <h1 className="text-lg font-bold leading-tight">Dental House</h1>
           </div>
-          <nav className="flex items-center gap-1.5 sm:gap-4 text-xs sm:text-sm">
+          <nav className="flex items-center gap-2 sm:gap-4 text-sm">
             <a href="#services" className="hidden sm:inline text-muted-foreground hover:text-foreground">Services</a>
             <a href="#reviews" className="hidden sm:inline text-muted-foreground hover:text-foreground">Reviews</a>
             <a href="#faq" className="hidden sm:inline text-muted-foreground hover:text-foreground">FAQs</a>
             <a href="#about" className="hidden sm:inline text-muted-foreground hover:text-foreground">About</a>
             <a href="#contact" className="hidden sm:inline text-muted-foreground hover:text-foreground">Contact</a>
-            <Link to="/my-appointments" className="inline-flex items-center gap-1 text-muted-foreground hover:text-foreground px-2 py-1.5 rounded-md hover:bg-accent hover:text-accent-foreground sm:hover:bg-transparent sm:hover:text-foreground sm:p-0 transition">
-              <Calendar className="h-3.5 w-3.5" />
-              <span className="hidden sm:inline">My Appointments</span>
-              <span className="sm:hidden">Appointments</span>
-            </Link>
-            <Link to="/appointment" className="rounded-md bg-primary px-3 py-1.5 sm:px-4 sm:py-2 font-medium text-primary-foreground hover:bg-primary/90 transition text-xs sm:text-sm whitespace-nowrap">
-              Book Appointment
+            <Link to="/my-appointments" className="inline-flex items-center gap-1 text-muted-foreground hover:text-foreground transition">
+              <Calendar className="h-4 w-4" />
+              <span>My Appointments</span>
             </Link>
           </nav>
         </div>
