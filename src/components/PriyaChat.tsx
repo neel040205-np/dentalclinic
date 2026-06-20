@@ -285,9 +285,15 @@ export default function PriyaChat() {
     } else if (choice.action === "confirm_fallback" && state.type === "STAFF_FALLBACK") {
       sendPriyaMessage(
         "I have registered your callback request. Our clinic staff will contact you on your phone number shortly to assist with this.",
-        [{ text: "🏠 Main Options", action: "go_home" }]
+        [{ text: "🏠 Main Menu", action: "go_home" }]
       );
       setState({ type: "IDLE" });
+    } else if (choice.action === "confirm_booking") {
+      await processState("yes");
+    } else if (choice.action === "confirm_reschedule") {
+      await processState("yes");
+    } else if (choice.action === "retry_name") {
+      sendPriyaMessage("Please enter the patient's full name to verify ownership.");
     }
   };
 
