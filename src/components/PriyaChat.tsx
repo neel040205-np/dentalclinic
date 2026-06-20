@@ -234,7 +234,7 @@ export default function PriyaChat() {
           setState({
             type: "CANCEL_CONFIRM",
             phone: state.phone,
-            name: state.name,
+            name: appt.name,
             appointment: appt
           });
           sendPriyaMessage(
@@ -248,7 +248,7 @@ export default function PriyaChat() {
           setState({
             type: "RESCHEDULE_COLLECT_DATE",
             phone: state.phone,
-            name: state.name,
+            name: appt.name,
             appointment: appt
           });
           sendPriyaMessage("What is the preferred new date for this appointment? (Please state a specific date, e.g., 'June 26' or 'YYYY-MM-DD').");
@@ -478,7 +478,7 @@ export default function PriyaChat() {
             setState({
               type: "CANCEL_CONFIRM",
               phone: state.phone,
-              name: text.trim(),
+              name: appt.name,
               appointment: appt
             });
             sendPriyaMessage(
@@ -492,7 +492,7 @@ export default function PriyaChat() {
             setState({
               type: "RESCHEDULE_COLLECT_DATE",
               phone: state.phone,
-              name: text.trim(),
+              name: appt.name,
               appointment: appt
             });
             sendPriyaMessage(`Verification successful!\nWhat is the preferred new date for your ${appt.service} appointment? (e.g., 'June 26' or 'YYYY-MM-DD').`);
@@ -503,7 +503,7 @@ export default function PriyaChat() {
             type: "SELECT_APPOINTMENT",
             actionType: state.actionType,
             phone: state.phone,
-            name: text.trim(),
+            name: matches[0].name,
             appointments: matches
           });
           sendPriyaMessage(

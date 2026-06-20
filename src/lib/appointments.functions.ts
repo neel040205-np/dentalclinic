@@ -7,10 +7,31 @@ const AppointmentSchema = z.object({
   email: z.string().trim().email().max(255).optional().or(z.literal("")),
   service: z.string().trim().min(1).max(120),
   doctor: z.string().trim().max(120).optional().or(z.literal("")),
-  preferred_date: z.string().trim().max(20).optional().or(z.literal("")),
-  preferred_time: z.string().trim().max(20).optional().or(z.literal("")),
+  preferred_date: z.string().trim().max(100).optional().or(z.literal("")),
+  preferred_time: z.string().trim().max(100).optional().or(z.literal("")),
   subject: z.string().trim().max(1000).optional().or(z.literal("")),
 });
+
+function parseToISODate(dateStr: string | null | undefined): string | null {
+  if (!dateStr) return null;
+  const s = dateStr.trim();
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) {
+    return s;
+  }
+  const timestamp = Date.parse(s);
+  if (!isNaN(timestamp)) {
+    const d = new Date(timestamp);
+    let year = d.getFullYear();
+    const currentYear = new Date().getFullYear();
+    if (year < currentYear) {
+      year = currentYear;
+    }
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  }
+  return null;
+}
 
 const NOTIFY_NUMBER = "+917859941319";
 
@@ -63,6 +84,13 @@ export const createAppointment = createServerFn({ method: "POST" })
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
     const isPriya = data.subject?.includes("Priya AI Assistant");
+    const parsedDate = parseToISODate(data.preferred_date);
+    let subject = data.subject || null;
+    if (!parsedDate && data.preferred_date) {
+      subject = subject 
+        ? `${subject} (Patient typed date: "${data.preferred_date}")`
+        : `Patient typed date: "${data.preferred_date}"`;
+    }
 
     const insertRow = {
       name: data.name,
@@ -70,9 +98,9 @@ export const createAppointment = createServerFn({ method: "POST" })
       email: data.email || null,
       service: data.service,
       doctor: data.doctor || null,
-      preferred_date: data.preferred_date || null,
+      preferred_date: parsedDate || null,
       preferred_time: data.preferred_time || null,
-      subject: data.subject || null,
+      subject,
       payment_status: isPriya ? "verification_pending" : "payment_pending",
     };
 
@@ -275,7 +303,7 @@ export const rescheduleAppointment = createServerFn({ method: "POST" })
     // Fetch to verify name matches
     const { data: appt, error: fetchErr } = await supabaseAdmin
       .from("appointments")
-      .select("name, phone, service, preferred_date, preferred_time")
+      .select("name, phone, service, preferred_date, preferred_time, subject")
       .eq("id", data.id)
       .single();
 
@@ -287,13 +315,22 @@ export const rescheduleAppointment = createServerFn({ method: "POST" })
       throw new Error("Verification failed: Patient name does not match our records.");
     }
 
+    const parsedDate = parseToISODate(data.preferred_date);
+    let subject = appt.subject || "";
+    if (!parsedDate && data.preferred_date) {
+      subject = subject
+        ? `${subject} (Patient requested reschedule date: "${data.preferred_date}")`
+        : `Patient requested reschedule date: "${data.preferred_date}"`;
+    }
+
     // Update date/time and reset status to pending for staff review
     const { error: updateErr } = await supabaseAdmin
       .from("appointments")
       .update({
-        preferred_date: data.preferred_date,
+        preferred_date: parsedDate || null,
         preferred_time: data.preferred_time,
-        status: "pending"
+        status: "pending",
+        subject: subject || null
       })
       .eq("id", data.id);
 
