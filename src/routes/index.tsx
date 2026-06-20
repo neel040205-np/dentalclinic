@@ -115,8 +115,8 @@ function Index() {
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(faqSchema) }}
       />
-      <div className="bg-secondary text-secondary-foreground text-center py-2.5 px-4 text-xs sm:text-sm font-medium tracking-wide flex items-center justify-center gap-2 shadow-sm border-b border-border">
-        <span className="inline-flex items-center justify-center rounded-full bg-primary/10 text-primary px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider">AI Assistant</span>
+      <div className="bg-emerald-50/90 dark:bg-emerald-950/20 text-emerald-800 dark:text-emerald-300 text-center py-2.5 px-4 text-xs sm:text-sm font-medium tracking-wide flex items-center justify-center gap-2 shadow-sm border-b border-emerald-100 dark:border-emerald-900/30">
+        <span className="inline-flex items-center justify-center rounded-full bg-emerald-100 dark:bg-emerald-900/50 text-emerald-800 dark:text-emerald-200 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider">AI Assistant</span>
         <span>Now book, reschedule, or cancel with AI Assistant Priya! Click the phone call icon on the bottom right.</span>
       </div>
       <header className="sticky top-0 z-30 border-b border-border bg-background/80 backdrop-blur">
