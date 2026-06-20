@@ -205,10 +205,10 @@ export const cancelAppointment = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
-    // Fetch to verify name matches
+    // Fetch to verify name matches and check payment status
     const { data: appt, error: fetchErr } = await supabaseAdmin
       .from("appointments")
-      .select("name, phone, service, preferred_date, preferred_time")
+      .select("name, phone, service, preferred_date, preferred_time, payment_status")
       .eq("id", data.id)
       .single();
 
@@ -220,14 +220,31 @@ export const cancelAppointment = createServerFn({ method: "POST" })
       throw new Error("Verification failed: Patient name does not match our records.");
     }
 
-    // Update status to rejected
+    const hasPaid = appt.payment_status === "confirmed" || appt.payment_status === "paid";
+    const newPaymentStatus = hasPaid ? "refund_pending" : "rejected";
+
+    // Update status to rejected and update payment_status
     const { error: updateErr } = await supabaseAdmin
       .from("appointments")
-      .update({ status: "rejected" })
+      .update({ status: "rejected", payment_status: newPaymentStatus })
       .eq("id", data.id);
 
     if (updateErr) {
       throw new Error("Failed to cancel appointment");
+    }
+
+    // Also update payments table status if a payment exists
+    const { data: payRow } = await supabaseAdmin
+      .from("payments")
+      .select("id")
+      .eq("appointment_id", data.id)
+      .maybeSingle();
+
+    if (payRow) {
+      await supabaseAdmin
+        .from("payments")
+        .update({ status: newPaymentStatus })
+        .eq("id", payRow.id);
     }
 
     // Trigger Twilio alert
@@ -237,11 +254,12 @@ export const cancelAppointment = createServerFn({ method: "POST" })
       `Phone: ${appt.phone}\n` +
       `Service: ${appt.service}\n` +
       (appt.preferred_date ? `Date: ${appt.preferred_date}\n` : "") +
-      (appt.preferred_time ? `Time: ${appt.preferred_time}` : "");
+      (appt.preferred_time ? `Time: ${appt.preferred_time}` : "") +
+      (hasPaid ? `\nRefund Status: Pending (₹)` : "");
 
     await sendWhatsApp(message);
 
-    return { success: true };
+    return { success: true, refundInitiated: hasPaid };
   });
 
 export const rescheduleAppointment = createServerFn({ method: "POST" })

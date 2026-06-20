@@ -15,6 +15,7 @@ import {
   Check, 
   Loader2, 
   Phone, 
+  PhoneCall,
   User, 
   Info,
   Clock
@@ -256,12 +257,19 @@ export default function PriyaChat() {
     } else if (choice.action === "confirm_cancel" && state.type === "CANCEL_CONFIRM") {
       try {
         setIsTyping(true);
-        await cancelFn({ data: { id: state.appointment.id, name: state.name } });
+        const res = await cancelFn({ data: { id: state.appointment.id, name: state.name } });
         setIsTyping(false);
-        sendPriyaMessage(
-          `Your appointment has been successfully canceled. A cancellation request notification has been sent to our staff.`,
-          [{ text: "🏠 Main Options", action: "go_home" }]
-        );
+        if (res && res.refundInitiated) {
+          sendPriyaMessage(
+            `Your appointment has been successfully canceled.\n\n💰 Refund Policy: Since payment was completed, your money will be refunded to your account in 3-5 business days.`,
+            [{ text: "🏠 Main Options", action: "go_home" }]
+          );
+        } else {
+          sendPriyaMessage(
+            `Your appointment has been successfully canceled.`,
+            [{ text: "🏠 Main Options", action: "go_home" }]
+          );
+        }
         setState({ type: "IDLE" });
       } catch (err: any) {
         setIsTyping(false);
@@ -640,7 +648,7 @@ export default function PriyaChat() {
           className="relative flex h-14 w-14 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg hover:scale-105 active:scale-95 transition-all duration-300 group"
           aria-label="Chat with Priya"
         >
-          <MessageCircle className="h-6 w-6 group-hover:rotate-12 transition-transform duration-300" />
+          <PhoneCall className="h-6 w-6 group-hover:rotate-12 transition-transform duration-300" />
           {hasUnread && (
             <span className="absolute -top-1 -right-1 flex h-4 w-4">
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-destructive opacity-75"></span>
