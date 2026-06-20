@@ -397,7 +397,7 @@ function PaymentStatusBadge({ status }: { status: string }) {
     cod_pending: "bg-blue-100 text-blue-700",
     pending: "bg-slate-100 text-slate-700",
     paid: "bg-emerald-100 text-emerald-700",
-    refund_pending: "bg-purple-100 text-purple-700",
+    refund_pending: "bg-sky-100 text-sky-700",
   };
   const cls = map[status] ?? "bg-slate-100 text-slate-700";
   return <span className={`inline-block rounded-full px-2 py-0.5 text-xs ${cls}`}>{status.replace(/_/g, " ")}</span>;
