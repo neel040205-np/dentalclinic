@@ -8,6 +8,7 @@ import {
   rescheduleAppointment 
 } from "@/lib/appointments.functions";
 import { confirmCashOnArrival } from "@/lib/payments.functions";
+import { askPriyaAI } from "@/lib/ai.functions";
 import { 
   MessageCircle, 
   X, 
@@ -79,6 +80,7 @@ export default function PriyaChat() {
   const cancelFn = useServerFn(cancelAppointment);
   const rescheduleFn = useServerFn(rescheduleAppointment);
   const confirmCodFn = useServerFn(confirmCashOnArrival);
+  const askPriyaFn = useServerFn(askPriyaAI);
 
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -691,34 +693,38 @@ export default function PriyaChat() {
 
       case "IDLE":
       default:
-        // Handle general conversations, check for off-topic, medical diagnosis etc.
-        const isMedical = [
-          "pain", "toothache", "medicine", "pill", "antibiotic", "bleed", "cure",
-          "medication", "dose", "diagnose", "advice", "treatment", "swelling"
-        ].some(kw => lowerText.includes(kw));
-
-        if (isMedical) {
-          sendPriyaMessage(
-            "I cannot provide medical advice, recommend medications, or diagnose conditions. For your health and safety, please contact the clinic directly or seek a professional consultation.",
-            [
-              { text: "📞 Contact Clinic", action: "clinic_contact" },
-              { text: "📅 Book Consultation", action: "start_booking" },
-              { text: "🏠 Back to Menu", action: "go_home" }
-            ]
-          );
-        } else if (lowerText.includes("wrong number") || lowerText.includes("not neel") || lowerText.includes("wrong person")) {
-          sendPriyaMessage("I apologize for the confusion. Thank you for letting me know, I will end this conversation. Have a great day!");
-          setTimeout(() => setIsOpen(false), 2000);
-        } else {
-          sendPriyaMessage(
-            "I am Priya, a dental clinic assistant. I can help you book, cancel, or reschedule appointments. What would you like to do?",
-            [
-              { text: "📅 Book an Appointment", action: "start_booking" },
-              { text: "🔄 Reschedule Appointment", action: "start_rescheduling" },
-              { text: "❌ Cancel Appointment", action: "start_cancelling" },
-              { text: "🏠 Main Menu", action: "go_home" }
-            ]
-          );
+        {
+          const lowerText = text.toLowerCase();
+          if (lowerText.includes("wrong number") || lowerText.includes("not neel") || lowerText.includes("wrong person")) {
+            sendPriyaMessage("I apologize for the confusion. Thank you for letting me know, I will end this conversation. Have a great day!");
+            setTimeout(() => setIsOpen(false), 2000);
+          } else {
+            try {
+              setIsTyping(true);
+              const aiReply = await askPriyaFn({ data: text });
+              setIsTyping(false);
+              sendPriyaMessage(
+                aiReply,
+                [
+                  { text: "📅 Book an Appointment", action: "start_booking" },
+                  { text: "🔄 Reschedule Appointment", action: "start_rescheduling" },
+                  { text: "❌ Cancel Appointment", action: "start_cancelling" },
+                  { text: "🏠 Main Menu", action: "go_home" }
+                ]
+              );
+            } catch (err) {
+              setIsTyping(false);
+              sendPriyaMessage(
+                "I am Priya, a dental clinic assistant. I can help you book, cancel, or reschedule appointments. What would you like to do?",
+                [
+                  { text: "📅 Book an Appointment", action: "start_booking" },
+                  { text: "🔄 Reschedule Appointment", action: "start_rescheduling" },
+                  { text: "❌ Cancel Appointment", action: "start_cancelling" },
+                  { text: "🏠 Main Menu", action: "go_home" }
+                ]
+              );
+            }
+          }
         }
         break;
     }
