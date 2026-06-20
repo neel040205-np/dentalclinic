@@ -173,3 +173,103 @@ export const getAppointmentsByPhone = createServerFn({ method: "POST" })
     }
     return data;
   });
+
+export const cancelAppointment = createServerFn({ method: "POST" })
+  .inputValidator((input: any) => z.object({
+    id: z.string().uuid(),
+    name: z.string().trim().min(1)
+  }).parse(input))
+  .handler(async ({ data }) => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+    // Fetch to verify name matches
+    const { data: appt, error: fetchErr } = await supabaseAdmin
+      .from("appointments")
+      .select("name, phone, service, preferred_date, preferred_time")
+      .eq("id", data.id)
+      .single();
+
+    if (fetchErr || !appt) {
+      throw new Error("Appointment not found");
+    }
+
+    if (appt.name.toLowerCase().trim() !== data.name.toLowerCase().trim()) {
+      throw new Error("Verification failed: Patient name does not match our records.");
+    }
+
+    // Update status to rejected
+    const { error: updateErr } = await supabaseAdmin
+      .from("appointments")
+      .update({ status: "rejected" })
+      .eq("id", data.id);
+
+    if (updateErr) {
+      throw new Error("Failed to cancel appointment");
+    }
+
+    // Trigger Twilio alert
+    const message =
+      `🛑 Appointment Canceled — Dental House\n` +
+      `Name: ${appt.name}\n` +
+      `Phone: ${appt.phone}\n` +
+      `Service: ${appt.service}\n` +
+      (appt.preferred_date ? `Date: ${appt.preferred_date}\n` : "") +
+      (appt.preferred_time ? `Time: ${appt.preferred_time}` : "");
+
+    await sendWhatsApp(message);
+
+    return { success: true };
+  });
+
+export const rescheduleAppointment = createServerFn({ method: "POST" })
+  .inputValidator((input: any) => z.object({
+    id: z.string().uuid(),
+    name: z.string().trim().min(1),
+    preferred_date: z.string().trim().min(1),
+    preferred_time: z.string().trim().min(1)
+  }).parse(input))
+  .handler(async ({ data }) => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+    // Fetch to verify name matches
+    const { data: appt, error: fetchErr } = await supabaseAdmin
+      .from("appointments")
+      .select("name, phone, service, preferred_date, preferred_time")
+      .eq("id", data.id)
+      .single();
+
+    if (fetchErr || !appt) {
+      throw new Error("Appointment not found");
+    }
+
+    if (appt.name.toLowerCase().trim() !== data.name.toLowerCase().trim()) {
+      throw new Error("Verification failed: Patient name does not match our records.");
+    }
+
+    // Update date/time and reset status to pending for staff review
+    const { error: updateErr } = await supabaseAdmin
+      .from("appointments")
+      .update({
+        preferred_date: data.preferred_date,
+        preferred_time: data.preferred_time,
+        status: "pending"
+      })
+      .eq("id", data.id);
+
+    if (updateErr) {
+      throw new Error("Failed to reschedule appointment");
+    }
+
+    // Trigger Twilio alert
+    const message =
+      `🔄 Appointment Rescheduled — Dental House\n` +
+      `Name: ${appt.name}\n` +
+      `Phone: ${appt.phone}\n` +
+      `Service: ${appt.service}\n` +
+      `Old: ${appt.preferred_date} @ ${appt.preferred_time}\n` +
+      `New: ${data.preferred_date} @ ${data.preferred_time}`;
+
+    await sendWhatsApp(message);
+
+    return { success: true };
+  });
