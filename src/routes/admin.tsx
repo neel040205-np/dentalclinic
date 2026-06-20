@@ -263,13 +263,22 @@ function AdminPage() {
                     </div>
                     <div>
                       <div className="text-xs uppercase tracking-wider text-muted-foreground mb-1">Screenshot</div>
-                      {url ? (
-                        <a href={url} target="_blank" rel="noreferrer">
-                          <img src={url} alt="Payment proof" className="w-full rounded-md border border-border" />
-                        </a>
+                      {p.screenshot_path ? (
+                        url ? (
+                          <a href={url} target="_blank" rel="noreferrer">
+                            <img src={url} alt="Payment proof" className="w-full rounded-md border border-border" />
+                          </a>
+                        ) : (
+                          <div className="flex h-32 items-center justify-center rounded-md border border-dashed border-border text-xs text-muted-foreground">
+                            Loading…
+                          </div>
+                        )
                       ) : (
-                        <div className="flex h-32 items-center justify-center rounded-md border border-dashed border-border text-xs text-muted-foreground">
-                          Loading…
+                        <div className="flex h-32 flex-col items-center justify-center rounded-md border border-dashed border-border text-xs text-muted-foreground bg-muted/20 gap-1.5 p-4 text-center">
+                          <span>No screenshot required</span>
+                          <span className="text-[10px] text-muted-foreground/75">
+                            {p.method === "priya" ? "Chatbot Booking" : "Cash on Arrival"}
+                          </span>
                         </div>
                       )}
                     </div>

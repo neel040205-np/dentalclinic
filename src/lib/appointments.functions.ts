@@ -62,6 +62,8 @@ export const createAppointment = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
+    const isPriya = data.subject?.includes("Priya AI Assistant");
+
     const insertRow = {
       name: data.name,
       phone: data.phone,
@@ -71,6 +73,7 @@ export const createAppointment = createServerFn({ method: "POST" })
       preferred_date: data.preferred_date || null,
       preferred_time: data.preferred_time || null,
       subject: data.subject || null,
+      payment_status: isPriya ? "verification_pending" : "payment_pending",
     };
 
     const { data: row, error } = await supabaseAdmin
@@ -90,6 +93,26 @@ export const createAppointment = createServerFn({ method: "POST" })
       }
       
       throw new Error("Could not save appointment");
+    }
+
+    if (isPriya) {
+      const { error: payErr } = await supabaseAdmin
+        .from("payments")
+        .insert({
+          appointment_id: row.id,
+          amount: 0,
+          currency: "INR",
+          status: "verification_pending",
+          method: "priya",
+          name: data.name,
+          phone: data.phone,
+          email: data.email || null,
+          note: "Booked via Priya AI Assistant",
+        });
+
+      if (payErr) {
+        console.error("Failed to insert payment for Priya booking", payErr);
+      }
     }
 
     const message =

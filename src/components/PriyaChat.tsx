@@ -351,7 +351,8 @@ export default function PriyaChat() {
                 service: state.service,
                 preferred_date: state.date,
                 preferred_time: state.time,
-                doctor: "Dr. Zeal Vyas Pandya (MDS, PGDHM)"
+                doctor: "Dr. Zeal Vyas Pandya (MDS, PGDHM)",
+                subject: "Booked via Priya AI Assistant"
               }
             });
             setIsTyping(false);
