@@ -1,11 +1,13 @@
 import { useState, useEffect, useRef } from "react";
 import { useServerFn } from "@tanstack/react-start";
+import { useNavigate } from "@tanstack/react-router";
 import { 
   createAppointment, 
   getAppointmentsByPhone, 
   cancelAppointment, 
   rescheduleAppointment 
 } from "@/lib/appointments.functions";
+import { confirmCashOnArrival } from "@/lib/payments.functions";
 import { 
   MessageCircle, 
   X, 
@@ -39,6 +41,7 @@ type ChatState =
   | { type: "BOOK_COLLECT_DATE", name: string, phone: string, service: string }
   | { type: "BOOK_COLLECT_TIME", name: string, phone: string, service: string, date: string }
   | { type: "BOOK_CONFIRM", name: string, phone: string, service: string, date: string, time: string }
+  | { type: "BOOK_SELECT_PAYMENT", name: string, phone: string, service: string, date: string, time: string }
   | { type: "VERIFY_PHONE", actionType: "cancel" | "reschedule" }
   | { type: "VERIFY_NAME", actionType: "cancel" | "reschedule", phone: string, appointments: any[] }
   | { type: "SELECT_APPOINTMENT", actionType: "cancel" | "reschedule", phone: string, name: string, appointments: any[] }
@@ -69,11 +72,13 @@ const GENERAL_SERVICES = [
 const ALL_SERVICES = [...SPECIALIST_SERVICES, ...GENERAL_SERVICES];
 
 export default function PriyaChat() {
+  const navigate = useNavigate();
   // Server functions
   const bookFn = useServerFn(createAppointment);
   const getByPhoneFn = useServerFn(getAppointmentsByPhone);
   const cancelFn = useServerFn(cancelAppointment);
   const rescheduleFn = useServerFn(rescheduleAppointment);
+  const confirmCodFn = useServerFn(confirmCashOnArrival);
 
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -83,6 +88,98 @@ export default function PriyaChat() {
   const [hasUnread, setHasUnread] = useState(false);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  const handleBookingPayment = async (paymentMethod: "upi" | "coa") => {
+    if (state.type !== "BOOK_SELECT_PAYMENT" && state.type !== "BOOK_CONFIRM") return;
+    
+    const bookingDetails = {
+      name: state.name,
+      phone: state.phone,
+      service: state.service,
+      date: state.date,
+      time: state.time
+    };
+
+    try {
+      setIsTyping(true);
+      
+      // 1. Create the appointment in the database
+      const res = await bookFn({
+        data: {
+          name: bookingDetails.name,
+          phone: bookingDetails.phone,
+          service: bookingDetails.service,
+          preferred_date: bookingDetails.date,
+          preferred_time: bookingDetails.time,
+          doctor: "Dr. Zeal Vyas Pandya (MDS, PGDHM)",
+          subject: "Booked via Priya AI Assistant"
+        }
+      });
+      
+      // 2. Save to local storage so user can find it in "My Appointments"
+      if (typeof window !== "undefined" && res?.id) {
+        try {
+          const existing = JSON.parse(localStorage.getItem("dental_house_booked_ids") || "[]");
+          if (Array.isArray(existing) && !existing.includes(res.id)) {
+            existing.push(res.id);
+            localStorage.setItem("dental_house_booked_ids", JSON.stringify(existing));
+          }
+        } catch (err) {
+          console.error(err);
+        }
+      }
+
+      if (paymentMethod === "upi") {
+        setIsTyping(false);
+        sendPriyaMessage("Excellent choice! Redirecting you to our secure payment page to complete your UPI transfer...");
+        setTimeout(() => {
+          setIsOpen(false);
+          void navigate({
+            to: "/pay",
+            search: {
+              appointment_id: res.id,
+              name: bookingDetails.name,
+              phone: bookingDetails.phone,
+              service: bookingDetails.service
+            }
+          });
+        }, 1500);
+      } else {
+        // Cash on Arrival: Register the payment and direct to ticket
+        await confirmCodFn({
+          data: {
+            appointment_id: res.id,
+            amount: 20000, // ₹200.00 in paise
+            name: bookingDetails.name,
+            phone: bookingDetails.phone,
+            note: "Cash on Arrival booked via Priya AI Assistant"
+          }
+        });
+        setIsTyping(false);
+        sendPriyaMessage("🎉 Booking Confirmed! Redirecting you to your printable appointment ticket...");
+        setTimeout(() => {
+          setIsOpen(false);
+          void navigate({
+            to: "/ticket",
+            search: {
+              appointment_id: res.id
+            }
+          });
+        }, 1500);
+      }
+      setState({ type: "IDLE" });
+    } catch (err: any) {
+      setIsTyping(false);
+      sendPriyaMessage(
+        `Booking failed: ${err.message || "Server issue"}. Would you like me to request a callback from the clinic staff to finalize this for you?`,
+        [
+          { text: "📞 Yes, Request Callback", action: "confirm_fallback" },
+          { text: "🏠 Main Menu", action: "go_home" }
+        ]
+      );
+      setState({ type: "STAFF_FALLBACK", pendingRequest: `Book appointment for ${bookingDetails.name} (${bookingDetails.phone}) - ${bookingDetails.service} on ${bookingDetails.date} at ${bookingDetails.time}` });
+    }
+  };
 
   // Initial welcome message
   useEffect(() => {
@@ -294,6 +391,10 @@ export default function PriyaChat() {
       await processState("yes");
     } else if (choice.action === "retry_name") {
       sendPriyaMessage("Please enter the patient's full name to verify ownership.");
+    } else if (choice.action === "pay_upi") {
+      await handleBookingPayment("upi");
+    } else if (choice.action === "pay_coa") {
+      await handleBookingPayment("coa");
     }
   };
 
@@ -356,56 +457,46 @@ export default function PriyaChat() {
 
       case "BOOK_CONFIRM":
         if (text.toLowerCase().includes("yes") || text.toLowerCase().includes("correct") || text.toLowerCase().includes("book")) {
-          try {
-            setIsTyping(true);
-            const res = await bookFn({
-              data: {
-                name: state.name,
-                phone: state.phone,
-                service: state.service,
-                preferred_date: state.date,
-                preferred_time: state.time,
-                doctor: "Dr. Zeal Vyas Pandya (MDS, PGDHM)",
-                subject: "Booked via Priya AI Assistant"
-              }
-            });
-            setIsTyping(false);
-            
-            // Save to local storage for My Appointments page
-            if (typeof window !== "undefined" && res?.id) {
-              try {
-                const existing = JSON.parse(localStorage.getItem("dental_house_booked_ids") || "[]");
-                if (Array.isArray(existing) && !existing.includes(res.id)) {
-                  existing.push(res.id);
-                  localStorage.setItem("dental_house_booked_ids", JSON.stringify(existing));
-                }
-              } catch (err) {
-                console.error(err);
-              }
-            }
-
-            sendPriyaMessage(
-              `🎉 Booking Successful!\nYour appointment has been registered. Ticket Ref: ${res.id.slice(0, 8)}. A WhatsApp notification has been triggered.`,
-              [{ text: "🏠 Main Menu", action: "go_home" }]
-            );
-            setState({ type: "IDLE" });
-          } catch (err: any) {
-            setIsTyping(false);
-            sendPriyaMessage(
-              `Booking failed: ${err.message || "Server issue"}. Would you like me to request a callback from the clinic staff to finalize this for you?`,
-              [
-                { text: "📞 Yes, Request Callback", action: "confirm_fallback" },
-                { text: "🏠 Main Menu", action: "go_home" }
-              ]
-            );
-            setState({ type: "STAFF_FALLBACK", pendingRequest: `Book appointment for ${state.name} (${state.phone}) - ${state.service} on ${state.date} at ${state.time}` });
-          }
+          setState({
+            type: "BOOK_SELECT_PAYMENT",
+            name: state.name,
+            phone: state.phone,
+            service: state.service,
+            date: state.date,
+            time: state.time
+          });
+          sendPriyaMessage(
+            "How would you like to pay for your appointment?",
+            [
+              { text: "💳 Pay via UPI Online", action: "pay_upi" },
+              { text: "💵 Cash on Arrival", action: "pay_coa" }
+            ]
+          );
         } else {
           sendPriyaMessage("Booking cancelled. How can I assist you next?", [
             { text: "📅 Book an Appointment", action: "start_booking" },
             { text: "🏠 Main Menu", action: "go_home" }
           ]);
           setState({ type: "IDLE" });
+        }
+        break;
+
+      case "BOOK_SELECT_PAYMENT":
+        {
+          const lower = text.toLowerCase();
+          if (lower.includes("upi") || lower.includes("online") || lower.includes("pay")) {
+            await handleBookingPayment("upi");
+          } else if (lower.includes("cash") || lower.includes("arrival") || lower.includes("coa")) {
+            await handleBookingPayment("coa");
+          } else {
+            sendPriyaMessage(
+              "Please select a payment option to complete your booking:",
+              [
+                { text: "💳 Pay via UPI Online", action: "pay_upi" },
+                { text: "💵 Cash on Arrival", action: "pay_coa" }
+              ]
+            );
+          }
         }
         break;
 
